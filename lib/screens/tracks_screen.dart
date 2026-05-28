@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
-import '../services/api_service.dart';
 import '../services/track_manager.dart';
 import '../theme/app_theme.dart';
 
@@ -24,7 +23,6 @@ class _TracksScreenState extends ConsumerState<TracksScreen> {
   final Set<String> _uploading = {};
   // filename → status info
   final Map<String, _TrackStatus> _statuses = {};
-  bool _serverChecked = false;
 
   @override
   void initState() {
@@ -51,10 +49,8 @@ class _TracksScreenState extends ConsumerState<TracksScreen> {
             raceName: raceName,
           );
         }
-        _serverChecked = true;
       });
-    } catch (_) {
-      if (mounted) setState(() => _serverChecked = true);
+    } catch (_) {}
     }
   }
 
@@ -145,10 +141,10 @@ class _TracksScreenState extends ConsumerState<TracksScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.gps_off, size: 48, color: AppColors.grey),
+                    const Icon(Icons.gps_off, size: 48, color: AppColors.grey),
                     const SizedBox(height: 12),
                     const Text('Nog geen tracks opgenomen',
-                        style: TextStyle(color: AppColors.grey)),
+                        style: const TextStyle(color: AppColors.grey)),
                   ],
                 ),
               )
