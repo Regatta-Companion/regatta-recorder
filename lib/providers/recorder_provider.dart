@@ -58,8 +58,9 @@ class RecorderNotifier extends Notifier<RecorderState> {
     // Also start the timer
     ref.read(timerProvider.notifier).start();
 
-    // Start foreground service — keeps app alive with screen off
-    BackgroundServiceManager.startRecording();
+    // Start foreground service — keeps app alive with screen off.
+    // Fire-and-forget: recording continues even if the service fails.
+    BackgroundServiceManager.startRecording().catchError((_) {});
   }
 
   /// Stop recording, save GPX, upload to server, and join race if code set.

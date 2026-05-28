@@ -64,6 +64,8 @@ class BackgroundServiceManager {
       // Foreground service not available — recording still works in foreground
     } on MissingPluginException {
       // Plugin not registered — app runs without background service
+    } catch (_) {
+      // Any other error — security exception, notification permission, etc.
     }
   }
 
