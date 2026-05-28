@@ -4,13 +4,42 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Simple sailboat icon -->
+
+    <!-- Mast -->
     <path
-        android:fillColor="#2DD4BF"
-        android:pathData="M30,80 L54,30 L78,80 Z"/>
+        android:fillColor="#8BACBF"
+        android:fillAlpha="0.8"
+        android:pathData="M53,24 L55,24 L55,82 L53,82 Z"/>
+
+    <!-- Main sail -->
     <path
-        android:fillColor="#2DD4BF"
-        android:pathData="M54,30 L54,85"
-        android:strokeWidth="3"
-        android:strokeColor="#2DD4BF"/>
+        android:fillColor="#E8553D"
+        android:pathData="M54,26 L54,76 L82,76 Z"/>
+
+    <!-- Jib sail -->
+    <path
+        android:fillColor="#FF8C7A"
+        android:fillAlpha="0.8"
+        android:pathData="M53,28 L53,66 L38,76 Z"/>
+
+    <!-- Hull -->
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M26,76 Q24,80 22,84 L28,86 L34,84 L42,86 L50,83 L62,86 L72,83 L82,86 L86,84 Q82,80 78,76 Z"/>
+
+    <!-- Hull accent -->
+    <path
+        android:strokeColor="#E8553D"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:pathData="M28,80 L78,80"/>
+
+    <!-- Recording dot -->
+    <path
+        android:fillColor="#E8553D"
+        android:pathData="M90,36 m-6,0 a6,6 0,1 1,12 0 a6,6 0,1 1,-12 0"/>
+    <path
+        android:fillColor="#FF6B55"
+        android:pathData="M90,36 m-3.5,0 a3.5,3.5 0,1 1,7 0 a3.5,3.5 0,1 1,-7 0"/>
+
 </vector>
