@@ -51,7 +51,6 @@ class _TracksScreenState extends ConsumerState<TracksScreen> {
         }
       });
     } catch (_) {}
-    }
   }
 
   String _statusLabel(File file) {
@@ -144,7 +143,7 @@ class _TracksScreenState extends ConsumerState<TracksScreen> {
                     const Icon(Icons.gps_off, size: 48, color: AppColors.grey),
                     const SizedBox(height: 12),
                     const Text('Nog geen tracks opgenomen',
-                        style: const TextStyle(color: AppColors.grey)),
+                        style: TextStyle(color: AppColors.grey)),
                   ],
                 ),
               )
