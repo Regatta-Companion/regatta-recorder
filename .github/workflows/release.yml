@@ -25,13 +25,17 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Decode keystore
+      - name: Decode keystore (if configured)
         run: |
-          echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 --decode > android/app/release.keystore
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 --decode > android/app/release.keystore
+            echo "KEYSTORE_PATH=release.keystore" >> $GITHUB_ENV
+          fi
+        env:
+          KS: ${{ secrets.RELEASE_KEYSTORE_B64 }}
 
       - name: Build release APK
         env:
-          KEYSTORE_PATH: release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
@@ -62,6 +66,7 @@ jobs:
           mkdir Payload
           cp -r Runner.app Payload/
           zip -r ../../regatta-recorder.ipa Payload
+
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
         with:
