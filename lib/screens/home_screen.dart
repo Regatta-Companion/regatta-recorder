@@ -34,6 +34,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final notifier = ref.read(timerProvider.notifier);
     final display = _formatDisplay(timerState);
 
+    // Auto-start recorder when countdown hits 5 minutes remaining
+    ref.listen(timerProvider, (prev, next) {
+      if (next.isRunning &&
+          next.isCountingDown &&
+          next.remaining <= const Duration(minutes: 5) &&
+          next.remaining > Duration.zero) {
+        final rec = ref.read(recorderProvider);
+        if (rec.status == RecorderStatus.idle) {
+          ref.read(recorderProvider.notifier).startRecording();
+        }
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Regatta Recorder',
@@ -53,64 +66,183 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Duration presets (top, compact) ──
-            if (timerState.status == tm.TimerStatus.idle)
-              _DurationSelector(
-                selected: timerState.duration,
-                onSelect: (d) {
-                  final preset = switch (d.inMinutes) {
-                    5 => TimerPreset.min5,
-                    10 => TimerPreset.min10,
-                    _ => TimerPreset.min15,
-                  };
-                  notifier.setToPreset(preset);
-                  ref.read(settingsProvider.notifier).setTimerPreset(preset);
-                },
-              ),
-            // ── Timer display (fills screen) ──
-            Expanded(
-              flex: 5,
-              child: _TimerDisplay(
-                display: display,
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            if (orientation == Orientation.landscape) {
+              return _LandscapeLayout(
                 timerState: timerState,
-              ),
-            ),
-            // ── Controls ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _StartButton(
-                      isRunning: timerState.isRunning,
-                      onTap:
-                          timerState.isRunning ? notifier.stop : notifier.start,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  _ResetButton(onTap: notifier.reset),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // ── Recorder (compact) ──
-            _RecorderBar(recorder: recorder),
-            const SizedBox(height: 4),
-            // ── Status dots ──
-            _StatusBar(
                 recorder: recorder,
-                settings: settingsAsync.valueOrNull),
-            const SizedBox(height: 8),
-          ],
+                display: display,
+                notifier: notifier,
+                settings: settingsAsync.valueOrNull,
+              );
+            }
+            return _PortraitLayout(
+              timerState: timerState,
+              recorder: recorder,
+              display: display,
+              notifier: notifier,
+              settings: settingsAsync.valueOrNull,
+            );
+          },
         ),
       ),
     );
   }
 }
 
-// ─── Duration selector (compact row at top) ───────────────────────────────
+// ─── Portrait Layout ──────────────────────────────────────────────────────────
+
+class _PortraitLayout extends ConsumerWidget {
+  final tm.TimerState timerState;
+  final RecorderState recorder;
+  final String display;
+  final dynamic notifier;
+  final AppSettings? settings;
+
+  const _PortraitLayout({
+    required this.timerState,
+    required this.recorder,
+    required this.display,
+    required this.notifier,
+    required this.settings,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        // Duration presets (top, compact)
+        if (timerState.status == tm.TimerStatus.idle)
+          _DurationSelector(
+            selected: timerState.duration,
+            onSelect: (d) {
+              final preset = switch (d.inMinutes) {
+                5 => TimerPreset.min5,
+                10 => TimerPreset.min10,
+                _ => TimerPreset.min15,
+              };
+              notifier.setToPreset(preset);
+              ref.read(settingsProvider.notifier).setTimerPreset(preset);
+            },
+          ),
+        // Timer display (fills screen)
+        Expanded(
+          flex: 5,
+          child: _TimerDisplay(
+            display: display,
+            timerState: timerState,
+          ),
+        ),
+        // Controls
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Expanded(
+                child: _StartButton(
+                  isRunning: timerState.isRunning,
+                  onTap:
+                      timerState.isRunning ? () => notifier.stop() : () => notifier.start(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _ResetButton(onTap: () => notifier.reset()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Recorder bar
+        _RecorderBar(recorder: recorder),
+        const SizedBox(height: 4),
+        _StatusBar(
+            recorder: recorder, settings: settings),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+// ─── Landscape Layout ─────────────────────────────────────────────────────────
+
+class _LandscapeLayout extends ConsumerWidget {
+  final tm.TimerState timerState;
+  final RecorderState recorder;
+  final String display;
+  final dynamic notifier;
+  final AppSettings? settings;
+
+  const _LandscapeLayout({
+    required this.timerState,
+    required this.recorder,
+    required this.display,
+    required this.notifier,
+    required this.settings,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        children: [
+          // Left column: presets, controls, recorder
+          SizedBox(
+            width: 200,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (timerState.status == tm.TimerStatus.idle)
+                  _DurationSelector(
+                    selected: timerState.duration,
+                    onSelect: (d) {
+                      final preset = switch (d.inMinutes) {
+                        5 => TimerPreset.min5,
+                        10 => TimerPreset.min10,
+                        _ => TimerPreset.min15,
+                      };
+                      notifier.setToPreset(preset);
+                      ref.read(settingsProvider.notifier).setTimerPreset(preset);
+                    },
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StartButton(
+                        isRunning: timerState.isRunning,
+                        onTap: timerState.isRunning
+                            ? () => notifier.stop()
+                            : () => notifier.start(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _ResetButton(onTap: () => notifier.reset()),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _RecorderBarLandscape(recorder: recorder),
+                const SizedBox(height: 4),
+                _StatusBarLandscape(
+                    recorder: recorder, settings: settings),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Right: big timer display
+          Expanded(
+            child: _TimerDisplay(
+              display: display,
+              timerState: timerState,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Duration selector ────────────────────────────────────────────────────────
 
 class _DurationSelector extends StatelessWidget {
   final Duration selected;
@@ -175,7 +307,7 @@ class _DurationChip extends StatelessWidget {
   }
 }
 
-// ─── Timer display (full-screen via FittedBox) ─────────────────────────────
+// ─── Timer display (full-screen via FittedBox) ────────────────────────────────
 
 class _TimerDisplay extends StatelessWidget {
   final String display;
@@ -219,7 +351,7 @@ class _TimerDisplay extends StatelessWidget {
   }
 }
 
-// ─── Start/Stop button ──────────────────────────────────────────────────────
+// ─── Start/Stop button ────────────────────────────────────────────────────────
 
 class _StartButton extends StatelessWidget {
   final bool isRunning;
@@ -252,7 +384,7 @@ class _StartButton extends StatelessWidget {
   }
 }
 
-// ─── Reset button ────────────────────────────────────────────────────────────
+// ─── Reset button ─────────────────────────────────────────────────────────────
 
 class _ResetButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -280,7 +412,7 @@ class _ResetButton extends StatelessWidget {
   }
 }
 
-// ─── Recorder bar (compact) ──────────────────────────────────────────────────
+// ─── Recorder bar (portrait) ──────────────────────────────────────────────────
 
 class _RecorderBar extends ConsumerWidget {
   final RecorderState recorder;
@@ -352,7 +484,81 @@ class _RecorderBar extends ConsumerWidget {
   }
 }
 
-// ─── Code chip ───────────────────────────────────────────────────────────────
+// ─── Recorder bar (landscape, compact) ────────────────────────────────────────
+
+class _RecorderBarLandscape extends ConsumerWidget {
+  final RecorderState recorder;
+  const _RecorderBarLandscape({required this.recorder});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(recorderProvider.notifier);
+    final settings = ref.watch(settingsProvider).valueOrNull;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  recorder.status == RecorderStatus.recording
+                      ? Icons.fiber_manual_record
+                      : recorder.status == RecorderStatus.done
+                          ? Icons.check_circle
+                          : Icons.gps_fixed,
+                  size: 16,
+                  color: recorder.status == RecorderStatus.recording
+                      ? AppColors.red
+                      : recorder.status == RecorderStatus.done
+                          ? AppColors.green
+                          : AppColors.teal,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  recorder.status == RecorderStatus.recording
+                      ? '${recorder.pointCount} pts'
+                      : recorder.status == RecorderStatus.done
+                          ? 'Klaar'
+                          : 'GPS',
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+            if (recorder.canStart)
+              TextButton.icon(
+                onPressed: () => notifier.startRecording(),
+                icon: const Icon(Icons.fiber_manual_record, size: 14),
+                label: Text(
+                  settings?.authToken != null ? 'Start' : 'Start*',
+                  style: const TextStyle(color: AppColors.red, fontSize: 11),
+                ),
+              )
+            else if (recorder.canStop)
+              TextButton.icon(
+                onPressed: () => notifier.stopRecording(),
+                icon: const Icon(Icons.stop, size: 14),
+                label: const Text('Stop',
+                    style: TextStyle(fontSize: 11)),
+              )
+            else if (recorder.status == RecorderStatus.done)
+              TextButton.icon(
+                onPressed: () => notifier.reset(),
+                icon: const Icon(Icons.refresh, size: 14),
+                label: const Text('Nieuw',
+                    style: TextStyle(fontSize: 11)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Code chip ────────────────────────────────────────────────────────────────
 
 class _CodeChip extends StatelessWidget {
   final String label;
@@ -374,7 +580,7 @@ class _CodeChip extends StatelessWidget {
   }
 }
 
-// ─── Status bar ──────────────────────────────────────────────────────────────
+// ─── Status bar (portrait) ────────────────────────────────────────────────────
 
 class _StatusBar extends StatelessWidget {
   final RecorderState recorder;
@@ -408,6 +614,35 @@ class _StatusBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Status bar (landscape, compact) ──────────────────────────────────────────
+
+class _StatusBarLandscape extends StatelessWidget {
+  final RecorderState recorder;
+  final AppSettings? settings;
+  const _StatusBarLandscape({required this.recorder, required this.settings});
+
+  @override
+  Widget build(BuildContext context) {
+    final loggedIn = settings?.authToken?.isNotEmpty == true;
+    final hasCode = settings?.raceCode?.isNotEmpty == true;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _StatusDot(
+          active: loggedIn,
+          label: loggedIn ? 'Login' : '❌',
+        ),
+        const SizedBox(width: 8),
+        _StatusDot(
+          active: hasCode,
+          label: hasCode ? settings!.raceCode! : '—',
+        ),
+      ],
     );
   }
 }

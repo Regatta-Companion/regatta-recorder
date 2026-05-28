@@ -14,9 +14,11 @@ void main() async {
   // Initialize background service (foreground notification keeps app alive)
   await BackgroundServiceManager.initialize();
 
-  // Forceer portrait mode op telefoons (niet op tablets)
+  // Allow portrait and landscape
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   // Donker overlay stijl voor statusbar
