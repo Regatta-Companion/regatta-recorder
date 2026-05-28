@@ -2,10 +2,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/recorder_state.dart';
-import '../models/app_settings.dart';
 import '../services/gps_service.dart';
 import '../services/track_recorder.dart';
-import '../services/api_service.dart';
 import 'settings_provider.dart';
 import 'timer_provider.dart';
 

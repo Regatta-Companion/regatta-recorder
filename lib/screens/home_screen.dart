@@ -1,8 +1,6 @@
 // lib/screens/home_screen.dart
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/timer_state.dart' as tm;
 import '../models/app_settings.dart';
 import '../models/recorder_state.dart';
@@ -25,13 +23,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final timer = ref.watch(timerProvider);
     final recorder = ref.watch(recorderProvider);
     final settingsAsync = ref.watch(settingsProvider);
+    final display = _formatDisplay(timer);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Regatta Recorder', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Regatta Recorder',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           if (settingsAsync.valueOrNull?.raceCode != null)
-            _CodeChip(label: settingsAsync.valueOrNull!.raceLabel ?? settingsAsync.valueOrNull!.raceCode!),
+            _CodeChip(
+                label: settingsAsync.valueOrNull!.raceLabel ??
+                    settingsAsync.valueOrNull!.raceCode!),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.push(
@@ -45,24 +47,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           children: [
             const SizedBox(height: 16),
-            // ── Timer display ──
-            _TimerDisplay(timer: timer),
+            _TimerDisplay(display: display, timer: timer),
             const SizedBox(height: 8),
             _TimerLabel(timer: timer),
             const SizedBox(height: 24),
-            // ── Timer controls ──
             _TimerControls(timer: timer),
             const SizedBox(height: 32),
-            // ── Recorder ──
-            _RecorderSection(recorder: recorder, timer: timer),
+            _RecorderSection(recorder: recorder),
             const Spacer(),
-            // ── Status bar ──
-            _StatusBar(recorder: recorder, settings: settingsAsync.valueOrNull),
+            _StatusBar(
+                recorder: recorder,
+                settings: settingsAsync.valueOrNull),
             const SizedBox(height: 8),
           ],
         ),
       ),
     );
+  }
+
+  String _formatDisplay(tm.TimerState timer) {
+    final notifier = ref.read(timerProvider.notifier);
+    return timer.isCountingDown
+        ? notifier.format(timer.remaining)
+        : notifier.format(timer.raceElapsed);
   }
 }
 
@@ -76,25 +83,23 @@ class _CodeChip extends StatelessWidget {
       margin: const EdgeInsets.only(right: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.teal.withOpacity(0.15),
+        color: AppColors.teal.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.teal.withOpacity(0.3)),
+        border: Border.all(color: AppColors.teal.withValues(alpha: 0.3)),
       ),
-      child: Text(label, style: const TextStyle(color: AppColors.teal, fontSize: 13)),
+      child: Text(label,
+          style: const TextStyle(color: AppColors.teal, fontSize: 13)),
     );
   }
 }
 
 class _TimerDisplay extends StatelessWidget {
+  final String display;
   final tm.TimerState timer;
-  const _TimerDisplay({required this.timer});
+  const _TimerDisplay({required this.display, required this.timer});
 
   @override
   Widget build(BuildContext context) {
-    final notifier = ref!.read(timerProvider.notifier);
-    final display = timer.isCountingDown
-        ? notifier.format(timer.remaining)
-        : notifier.format(timer.raceElapsed);
     final color = timer.isCountingDown
         ? (timer.remaining.inSeconds <= 10 && timer.isRunning
             ? AppColors.red
@@ -105,7 +110,8 @@ class _TimerDisplay extends StatelessWidget {
 
     return Text(
       '$prefix$display',
-      style: Theme.of(context).textTheme.displayLarge?.copyWith(color: color),
+      style:
+          Theme.of(context).textTheme.displayLarge?.copyWith(color: color),
     );
   }
 }
@@ -142,52 +148,57 @@ class _TimerControls extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Preset buttons
         if (timer.status == tm.TimerStatus.idle) ...[
           _PresetButton(
-            label: '5\'',
+            label: "5'",
             active: settings?.timerPreset == TimerPreset.min5,
             onTap: () {
               notifier.setToPreset(TimerPreset.min5);
-              ref.read(settingsProvider.notifier).setTimerPreset(TimerPreset.min5);
+              ref
+                  .read(settingsProvider.notifier)
+                  .setTimerPreset(TimerPreset.min5);
             },
           ),
           const SizedBox(width: 8),
           _PresetButton(
-            label: '10\'',
+            label: "10'",
             active: settings?.timerPreset == TimerPreset.min10,
             onTap: () {
               notifier.setToPreset(TimerPreset.min10);
-              ref.read(settingsProvider.notifier).setTimerPreset(TimerPreset.min10);
+              ref
+                  .read(settingsProvider.notifier)
+                  .setTimerPreset(TimerPreset.min10);
             },
           ),
           const SizedBox(width: 8),
           _PresetButton(
-            label: '15\'',
+            label: "15'",
             active: settings?.timerPreset == TimerPreset.min15,
             onTap: () {
               notifier.setToPreset(TimerPreset.min15);
-              ref.read(settingsProvider.notifier).setTimerPreset(TimerPreset.min15);
+              ref
+                  .read(settingsProvider.notifier)
+                  .setTimerPreset(TimerPreset.min15);
             },
           ),
           const SizedBox(width: 16),
         ],
-        // Start / Pause
         if (timer.status != tm.TimerStatus.running)
           ElevatedButton.icon(
             onPressed: () => notifier.start(),
             icon: const Icon(Icons.play_arrow),
-            label: Text(timer.status == tm.TimerStatus.paused ? 'Hervat' : 'Start'),
+            label: Text(
+                timer.status == tm.TimerStatus.paused ? 'Hervat' : 'Start'),
           )
         else
           ElevatedButton.icon(
             onPressed: () => notifier.stop(),
             icon: const Icon(Icons.pause),
             label: const Text('Pauze'),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.amber),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.amber),
           ),
         const SizedBox(width: 12),
-        // Reset
         IconButton.outlined(
           onPressed: () => notifier.reset(),
           icon: const Icon(Icons.refresh),
@@ -202,7 +213,8 @@ class _PresetButton extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-  const _PresetButton({required this.label, required this.active, required this.onTap});
+  const _PresetButton(
+      {required this.label, required this.active, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -211,7 +223,9 @@ class _PresetButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? AppColors.teal.withOpacity(0.2) : AppColors.navyLight,
+          color: active
+              ? AppColors.teal.withValues(alpha: 0.2)
+              : AppColors.navyLight,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: active ? AppColors.teal : AppColors.greyDark,
@@ -232,8 +246,7 @@ class _PresetButton extends StatelessWidget {
 
 class _RecorderSection extends ConsumerWidget {
   final RecorderState recorder;
-  final tm.TimerState timer;
-  const _RecorderSection({required this.recorder, required this.timer});
+  const _RecorderSection({required this.recorder});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -267,7 +280,10 @@ class _RecorderSection extends ConsumerWidget {
                           : recorder.status == RecorderStatus.done
                               ? 'Opname voltooid ✓'
                               : 'GPS Recorder',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20),
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(fontSize: 20),
                 ),
               ],
             ),
@@ -275,7 +291,10 @@ class _RecorderSection extends ConsumerWidget {
               const SizedBox(height: 12),
               Text(
                 _formatElapsed(recorder.elapsed),
-                style: const TextStyle(fontSize: 32, fontFamily: 'monospace', color: AppColors.teal),
+                style: const TextStyle(
+                    fontSize: 32,
+                    fontFamily: 'monospace',
+                    color: AppColors.teal),
               ),
               const SizedBox(height: 4),
               Text(
@@ -296,7 +315,6 @@ class _RecorderSection extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 16),
-            // Record button
             if (recorder.canStart)
               SizedBox(
                 width: double.infinity,
@@ -321,7 +339,8 @@ class _RecorderSection extends ConsumerWidget {
                   onPressed: () => notifier.stopRecording(),
                   icon: const Icon(Icons.stop),
                   label: const Text('Stop opname'),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.amber),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.amber),
                 ),
               )
             else if (recorder.status == RecorderStatus.done)
@@ -404,7 +423,8 @@ class _StatusDot extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.grey)),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: AppColors.grey)),
       ],
     );
   }

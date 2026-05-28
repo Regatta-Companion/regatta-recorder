@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/app_settings.dart';
 import '../providers/settings_provider.dart';
-import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 
@@ -348,7 +347,7 @@ class _VersionTileState extends State<_VersionTile> {
         child: Text(
           _version.isNotEmpty ? _version : '',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.grey.withOpacity(0.5),
+                color: AppColors.grey.withValues(alpha: 0.5),
               ),
         ),
       ),

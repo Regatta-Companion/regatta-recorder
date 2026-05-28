@@ -69,7 +69,7 @@ ThemeData buildTheme() {
         borderSide: const BorderSide(color: primary),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      hintStyle: TextStyle(color: AppColors.grey),
+      hintStyle: const TextStyle(color: AppColors.grey),
     ),
     textTheme: const TextTheme(
       displayLarge: TextStyle(
