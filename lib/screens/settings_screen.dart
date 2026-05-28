@@ -6,6 +6,7 @@ import '../models/app_settings.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
+import 'tracks_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -115,6 +116,20 @@ class _SettingsBody extends ConsumerWidget {
               child: Text(
                 'Zet op "Uit" om alleen als recorder te gebruiken (geen aftellen).',
                 style: TextStyle(fontSize: 13, color: AppColors.grey),
+              ),
+            ),
+          ]),
+
+          // ── Tracks ──
+          _Section('Tracks', [
+            ListTile(
+              leading: const Icon(Icons.route, color: AppColors.teal),
+              title: const Text('Opgenomen tracks'),
+              subtitle: const Text('Bekijk en beheer opgeslagen GPX tracks'),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.grey),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TracksScreen()),
               ),
             ),
           ]),

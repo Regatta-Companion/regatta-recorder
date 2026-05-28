@@ -18,12 +18,21 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String _formatDisplay(tm.TimerState timerState) {
+    final notifier = ref.read(timerProvider.notifier);
+    if (timerState.isCountingDown) {
+      return '-${notifier.format(timerState.remaining)}';
+    }
+    return '+${notifier.format(timerState.raceElapsed)}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final timer = ref.watch(timerProvider);
+    final timerState = ref.watch(timerProvider);
     final recorder = ref.watch(recorderProvider);
     final settingsAsync = ref.watch(settingsProvider);
-    final display = _formatDisplay(timer);
+    final notifier = ref.read(timerProvider.notifier);
+    final display = _formatDisplay(timerState);
 
     return Scaffold(
       appBar: AppBar(
@@ -46,15 +55,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 16),
-            _TimerDisplay(display: display, timer: timer),
-            const SizedBox(height: 8),
-            _TimerLabel(timer: timer),
-            const SizedBox(height: 24),
-            _TimerControls(timer: timer),
-            const SizedBox(height: 32),
-            _RecorderSection(recorder: recorder),
-            const Spacer(),
+            // ── Duration presets (top, compact) ──
+            if (timerState.status == tm.TimerStatus.idle)
+              _DurationSelector(
+                selected: timerState.duration,
+                onSelect: (d) {
+                  final preset = switch (d.inMinutes) {
+                    5 => TimerPreset.min5,
+                    10 => TimerPreset.min10,
+                    _ => TimerPreset.min15,
+                  };
+                  notifier.setToPreset(preset);
+                  ref.read(settingsProvider.notifier).setTimerPreset(preset);
+                },
+              ),
+            // ── Timer display (fills screen) ──
+            Expanded(
+              flex: 5,
+              child: _TimerDisplay(
+                display: display,
+                timerState: timerState,
+              ),
+            ),
+            // ── Controls ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StartButton(
+                      isRunning: timerState.isRunning,
+                      onTap:
+                          timerState.isRunning ? notifier.stop : notifier.start,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _ResetButton(onTap: notifier.reset),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // ── Recorder (compact) ──
+            _RecorderBar(recorder: recorder),
+            const SizedBox(height: 4),
+            // ── Status dots ──
             _StatusBar(
                 recorder: recorder,
                 settings: settingsAsync.valueOrNull),
@@ -64,14 +108,251 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+}
 
-  String _formatDisplay(tm.TimerState timer) {
-    final notifier = ref.read(timerProvider.notifier);
-    return timer.isCountingDown
-        ? notifier.format(timer.remaining)
-        : notifier.format(timer.raceElapsed);
+// ─── Duration selector (compact row at top) ───────────────────────────────
+
+class _DurationSelector extends StatelessWidget {
+  final Duration selected;
+  final void Function(Duration) onSelect;
+
+  const _DurationSelector({required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    const options = [
+      Duration(minutes: 5),
+      Duration(minutes: 10),
+      Duration(minutes: 15),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: options
+            .map((d) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: _DurationChip(
+                    label: '${d.inMinutes}m',
+                    selected: selected == d,
+                    onTap: () => onSelect(d),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
   }
 }
+
+class _DurationChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DurationChip(
+      {required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.teal : AppColors.navyLight,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: selected ? AppColors.navy : AppColors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Timer display (full-screen via FittedBox) ─────────────────────────────
+
+class _TimerDisplay extends StatelessWidget {
+  final String display;
+  final tm.TimerState timerState;
+
+  const _TimerDisplay({required this.display, required this.timerState});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = timerState.isCountingDown
+        ? (timerState.remaining.inSeconds <= 10 && timerState.isRunning
+            ? AppColors.red
+            : AppColors.white)
+        : AppColors.teal;
+
+    final label = timerState.isCountingDown ? 'AFTELLEN' : 'RACE';
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 4),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                display,
+                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      height: 1.0,
+                      color: color,
+                    ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Start/Stop button ──────────────────────────────────────────────────────
+
+class _StartButton extends StatelessWidget {
+  final bool isRunning;
+  final VoidCallback onTap;
+
+  const _StartButton({required this.isRunning, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF166534),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Center(
+          child: Text(
+            isRunning ? 'STOP' : 'START',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF4ADE80),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Reset button ────────────────────────────────────────────────────────────
+
+class _ResetButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ResetButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          color: AppColors.navyLight,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          'RESET',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.white.withValues(alpha: 0.6),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Recorder bar (compact) ──────────────────────────────────────────────────
+
+class _RecorderBar extends ConsumerWidget {
+  final RecorderState recorder;
+  const _RecorderBar({required this.recorder});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(recorderProvider.notifier);
+    final settings = ref.watch(settingsProvider).valueOrNull;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                recorder.status == RecorderStatus.recording
+                    ? Icons.fiber_manual_record
+                    : recorder.status == RecorderStatus.done
+                        ? Icons.check_circle
+                        : Icons.gps_fixed,
+                color: recorder.status == RecorderStatus.recording
+                    ? AppColors.red
+                    : recorder.status == RecorderStatus.done
+                        ? AppColors.green
+                        : AppColors.teal,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  recorder.status == RecorderStatus.recording
+                      ? 'Opnemen — ${recorder.pointCount} pts'
+                      : recorder.status == RecorderStatus.uploading
+                          ? 'Uploaden...'
+                          : recorder.status == RecorderStatus.done
+                              ? 'Opname voltooid'
+                              : 'GPS Recorder',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+              if (recorder.canStart)
+                TextButton.icon(
+                  onPressed: () => notifier.startRecording(),
+                  icon: const Icon(Icons.fiber_manual_record, size: 18),
+                  label: Text(
+                    settings?.authToken != null ? 'Start' : 'Start*',
+                    style: const TextStyle(color: AppColors.red),
+                  ),
+                )
+              else if (recorder.canStop)
+                TextButton.icon(
+                  onPressed: () => notifier.stopRecording(),
+                  icon: const Icon(Icons.stop, size: 18),
+                  label: const Text('Stop'),
+                )
+              else if (recorder.status == RecorderStatus.done)
+                TextButton.icon(
+                  onPressed: () => notifier.reset(),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Nieuw'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Code chip ───────────────────────────────────────────────────────────────
 
 class _CodeChip extends StatelessWidget {
   final String label;
@@ -87,287 +368,13 @@ class _CodeChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.teal.withValues(alpha: 0.3)),
       ),
-      child: Text(label,
-          style: const TextStyle(color: AppColors.teal, fontSize: 13)),
+      child:
+          Text(label, style: const TextStyle(color: AppColors.teal, fontSize: 13)),
     );
   }
 }
 
-class _TimerDisplay extends StatelessWidget {
-  final String display;
-  final tm.TimerState timer;
-  const _TimerDisplay({required this.display, required this.timer});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = timer.isCountingDown
-        ? (timer.remaining.inSeconds <= 10 && timer.isRunning
-            ? AppColors.red
-            : AppColors.white)
-        : AppColors.teal;
-
-    final prefix = timer.isCountingDown ? '-' : '';
-
-    return Text(
-      '$prefix$display',
-      style:
-          Theme.of(context).textTheme.displayLarge?.copyWith(color: color),
-    );
-  }
-}
-
-class _TimerLabel extends StatelessWidget {
-  final tm.TimerState timer;
-  const _TimerLabel({required this.timer});
-
-  @override
-  Widget build(BuildContext context) {
-    String label;
-    if (timer.status == tm.TimerStatus.idle) {
-      label = timer.hasCountdown ? 'Klaar voor start' : 'Timer uit';
-    } else if (timer.status == tm.TimerStatus.paused) {
-      label = 'Gepauzeerd';
-    } else if (timer.isCountingDown) {
-      label = 'Aftellen...';
-    } else {
-      label = 'Racen! 🏁';
-    }
-    return Text(label, style: Theme.of(context).textTheme.titleMedium);
-  }
-}
-
-class _TimerControls extends ConsumerWidget {
-  final tm.TimerState timer;
-  const _TimerControls({required this.timer});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(timerProvider.notifier);
-    final settings = ref.watch(settingsProvider).valueOrNull;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (timer.status == tm.TimerStatus.idle) ...[
-          _PresetButton(
-            label: "5'",
-            active: settings?.timerPreset == TimerPreset.min5,
-            onTap: () {
-              notifier.setToPreset(TimerPreset.min5);
-              ref
-                  .read(settingsProvider.notifier)
-                  .setTimerPreset(TimerPreset.min5);
-            },
-          ),
-          const SizedBox(width: 8),
-          _PresetButton(
-            label: "10'",
-            active: settings?.timerPreset == TimerPreset.min10,
-            onTap: () {
-              notifier.setToPreset(TimerPreset.min10);
-              ref
-                  .read(settingsProvider.notifier)
-                  .setTimerPreset(TimerPreset.min10);
-            },
-          ),
-          const SizedBox(width: 8),
-          _PresetButton(
-            label: "15'",
-            active: settings?.timerPreset == TimerPreset.min15,
-            onTap: () {
-              notifier.setToPreset(TimerPreset.min15);
-              ref
-                  .read(settingsProvider.notifier)
-                  .setTimerPreset(TimerPreset.min15);
-            },
-          ),
-          const SizedBox(width: 16),
-        ],
-        if (timer.status != tm.TimerStatus.running)
-          ElevatedButton.icon(
-            onPressed: () => notifier.start(),
-            icon: const Icon(Icons.play_arrow),
-            label: Text(
-                timer.status == tm.TimerStatus.paused ? 'Hervat' : 'Start'),
-          )
-        else
-          ElevatedButton.icon(
-            onPressed: () => notifier.stop(),
-            icon: const Icon(Icons.pause),
-            label: const Text('Pauze'),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.amber),
-          ),
-        const SizedBox(width: 12),
-        IconButton.outlined(
-          onPressed: () => notifier.reset(),
-          icon: const Icon(Icons.refresh),
-          tooltip: 'Reset',
-        ),
-      ],
-    );
-  }
-}
-
-class _PresetButton extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  const _PresetButton(
-      {required this.label, required this.active, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.teal.withValues(alpha: 0.2)
-              : AppColors.navyLight,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: active ? AppColors.teal : AppColors.greyDark,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? AppColors.teal : AppColors.grey,
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecorderSection extends ConsumerWidget {
-  final RecorderState recorder;
-  const _RecorderSection({required this.recorder});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(recorderProvider.notifier);
-    final settings = ref.watch(settingsProvider).valueOrNull;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  recorder.status == RecorderStatus.recording
-                      ? Icons.fiber_manual_record
-                      : Icons.gps_fixed,
-                  color: recorder.status == RecorderStatus.recording
-                      ? AppColors.red
-                      : AppColors.teal,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  recorder.status == RecorderStatus.recording
-                      ? 'Opnemen...'
-                      : recorder.status == RecorderStatus.uploading
-                          ? 'Uploaden...'
-                          : recorder.status == RecorderStatus.done
-                              ? 'Opname voltooid ✓'
-                              : 'GPS Recorder',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineMedium
-                      ?.copyWith(fontSize: 20),
-                ),
-              ],
-            ),
-            if (recorder.status == RecorderStatus.recording) ...[
-              const SizedBox(height: 12),
-              Text(
-                _formatElapsed(recorder.elapsed),
-                style: const TextStyle(
-                    fontSize: 32,
-                    fontFamily: 'monospace',
-                    color: AppColors.teal),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${recorder.pointCount} punten',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-            if (recorder.status == RecorderStatus.uploading) ...[
-              const SizedBox(height: 16),
-              const CircularProgressIndicator(color: AppColors.teal),
-            ],
-            if (recorder.error != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                recorder.error!,
-                style: const TextStyle(color: AppColors.red, fontSize: 13),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            const SizedBox(height: 16),
-            if (recorder.canStart)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => notifier.startRecording(),
-                  icon: const Icon(Icons.fiber_manual_record),
-                  label: Text(
-                    settings?.authToken != null
-                        ? 'Start opname'
-                        : 'Start opname (niet ingelogd)',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.red,
-                    foregroundColor: AppColors.white,
-                  ),
-                ),
-              )
-            else if (recorder.canStop)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => notifier.stopRecording(),
-                  icon: const Icon(Icons.stop),
-                  label: const Text('Stop opname'),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.amber),
-                ),
-              )
-            else if (recorder.status == RecorderStatus.done)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => notifier.reset(),
-                  icon: const Icon(Icons.check),
-                  label: const Text('Nieuwe opname'),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatElapsed(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    final s = d.inSeconds.remainder(60);
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-}
+// ─── Status bar ──────────────────────────────────────────────────────────────
 
 class _StatusBar extends StatelessWidget {
   final RecorderState recorder;
@@ -388,12 +395,13 @@ class _StatusBar extends StatelessWidget {
             active: loggedIn,
             label: loggedIn ? 'Ingelogd' : 'Niet ingelogd',
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           _StatusDot(
             active: hasCode,
-            label: hasCode ? 'Code: ${settings!.raceCode}' : 'Geen code',
+            label:
+                hasCode ? 'Code: ${settings!.raceCode}' : 'Geen code',
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           _StatusDot(
             active: recorder.pointCount > 0,
             label: '${recorder.pointCount} pts',
@@ -424,7 +432,7 @@ class _StatusDot extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(label,
-            style: const TextStyle(fontSize: 12, color: AppColors.grey)),
+            style: const TextStyle(fontSize: 11, color: AppColors.grey)),
       ],
     );
   }
