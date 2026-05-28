@@ -5,10 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
+import 'services/background_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize background service (foreground notification keeps app alive)
+  await BackgroundServiceManager.initialize();
 
   // Forceer portrait mode op telefoons (niet op tablets)
   SystemChrome.setPreferredOrientations([

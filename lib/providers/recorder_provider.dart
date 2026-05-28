@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/recorder_state.dart';
+import '../services/background_service.dart';
 import '../services/gps_service.dart';
 import '../services/track_recorder.dart';
 import 'settings_provider.dart';
@@ -25,7 +26,7 @@ class RecorderNotifier extends Notifier<RecorderState> {
     return ref.read(gpsServiceProvider).requestPermission();
   }
 
-  /// Start recording. Automatically starts the timer if not running.
+  /// Start recording. Automatically starts the timer and foreground service.
   Future<void> startRecording() async {
     final ok = await requestPermission();
     if (!ok) {
@@ -56,11 +57,18 @@ class RecorderNotifier extends Notifier<RecorderState> {
 
     // Also start the timer
     ref.read(timerProvider.notifier).start();
+
+    // Start foreground service — keeps app alive with screen off
+    BackgroundServiceManager.startRecording();
   }
 
   /// Stop recording, save GPX, upload to server, and join race if code set.
   Future<void> stopRecording() async {
     _elapsedTimer?.cancel();
+
+    // Stop foreground service first
+    BackgroundServiceManager.stopRecording();
+
     final file = await _trackRecorder.stop();
 
     state = state.copyWith(
@@ -124,6 +132,7 @@ class RecorderNotifier extends Notifier<RecorderState> {
   void reset() {
     _elapsedTimer?.cancel();
     _trackRecorder.stop(); // discard
+    BackgroundServiceManager.stopRecording();
     state = const RecorderState();
   }
 }

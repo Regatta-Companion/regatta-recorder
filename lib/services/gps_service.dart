@@ -27,6 +27,14 @@ class GpsService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
+    if (permission == LocationPermission.denied) return false;
+    if (permission == LocationPermission.deniedForever) return false;
+
+    // Request background location — needed for screen-off recording
+    if (permission == LocationPermission.whileInUse) {
+      permission = await Geolocator.requestPermission();
+    }
+
     return permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always;
   }

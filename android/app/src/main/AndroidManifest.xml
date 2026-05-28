@@ -4,10 +4,16 @@
     <!-- GPS access -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Keep screen on -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- Keep screen on + keep CPU awake -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Foreground service (keeps app alive with screen off) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Internet for API calls -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Post notifications (foreground service notification) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="Regatta Recorder"
@@ -32,6 +38,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
 
         <meta-data
             android:name="flutterEmbedding"
