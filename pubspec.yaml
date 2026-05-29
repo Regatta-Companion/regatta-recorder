@@ -1,7 +1,7 @@
 name: regatta_recorder
 description: Minimalistische regatta track recorder met timer
 publish_to: 'none'
-version: 1.1.5+8
+version: 1.1.6+9
 
 environment:
   sdk: ^3.11.4

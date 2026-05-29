@@ -27,7 +27,7 @@ class RecorderNotifier extends Notifier<RecorderState> {
     return ref.read(gpsServiceProvider).requestPermission();
   }
 
-  /// Start recording. Automatically starts the timer and keeps screen on.
+  /// Start recording. Keeps screen on + starts foreground service.
   Future<void> startRecording() async {
     try {
       // 1. Permission
@@ -72,8 +72,9 @@ class RecorderNotifier extends Notifier<RecorderState> {
       // 4. Start timer
       ref.read(timerProvider.notifier).start();
 
-      // 5. Keep screen on during recording (so timer + GPS stay alive)
+      // 5. Keep screen on + foreground service for screen-off survival
       WakelockPlus.enable();
+      BackgroundServiceManager.startRecording().catchError((_) {});
     } catch (e) {
       state = state.copyWith(
         error: 'Fout bij starten: ${e.toString()}',
@@ -85,8 +86,9 @@ class RecorderNotifier extends Notifier<RecorderState> {
   Future<void> stopRecording() async {
     _elapsedTimer?.cancel();
 
-    // Allow screen to sleep again
+    // Allow screen to sleep + stop foreground service
     WakelockPlus.disable();
+    BackgroundServiceManager.stopRecording();
 
     final file = await _trackRecorder.stop();
 
@@ -152,6 +154,7 @@ class RecorderNotifier extends Notifier<RecorderState> {
     _elapsedTimer?.cancel();
     _trackRecorder.stop(); // discard
     WakelockPlus.disable();
+    BackgroundServiceManager.stopRecording();
     state = const RecorderState();
   }
 }
