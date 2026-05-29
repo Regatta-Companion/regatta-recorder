@@ -28,39 +28,56 @@ class RecorderNotifier extends Notifier<RecorderState> {
 
   /// Start recording. Automatically starts the timer and foreground service.
   Future<void> startRecording() async {
-    final ok = await requestPermission();
-    if (!ok) {
-      state = state.copyWith(
-        error: 'GPS-toestemming nodig om op te nemen.',
-      );
-      return;
-    }
-
-    final gpsStream = ref.read(gpsServiceProvider).positionStream;
-    _trackRecorder.start(gpsStream);
-    _startTime = DateTime.now();
-
-    _elapsedTimer?.cancel();
-    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_startTime != null) {
+    try {
+      // 1. Permission
+      final ok = await requestPermission();
+      if (!ok) {
         state = state.copyWith(
-          elapsed: DateTime.now().difference(_startTime!),
-          pointCount: _trackRecorder.pointCount,
+          error: 'GPS-toestemming nodig om op te nemen.',
         );
+        return;
       }
-    });
 
-    state = RecorderState(
-      status: RecorderStatus.recording,
-      startTime: _startTime,
-    );
+      // 2. Verify GPS actually works before opening the stream
+      final gpsService = ref.read(gpsServiceProvider);
+      final gpsReady = await gpsService.checkGpsAvailable();
+      if (!gpsReady) {
+        state = state.copyWith(
+          error: 'GPS nog niet beschikbaar — even wachten.',
+        );
+        return;
+      }
 
-    // Also start the timer
-    ref.read(timerProvider.notifier).start();
+      // 3. Start GPS stream + track recording
+      final gpsStream = gpsService.positionStream;
+      _trackRecorder.start(gpsStream);
+      _startTime = DateTime.now();
 
-    // Start foreground service — keeps app alive with screen off.
-    // Fire-and-forget: recording continues even if the service fails.
-    BackgroundServiceManager.startRecording().catchError((_) {});
+      _elapsedTimer?.cancel();
+      _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_startTime != null) {
+          state = state.copyWith(
+            elapsed: DateTime.now().difference(_startTime!),
+            pointCount: _trackRecorder.pointCount,
+          );
+        }
+      });
+
+      state = RecorderState(
+        status: RecorderStatus.recording,
+        startTime: _startTime,
+      );
+
+      // 4. Start timer
+      ref.read(timerProvider.notifier).start();
+
+      // 5. Foreground service (fire-and-forget)
+      BackgroundServiceManager.startRecording().catchError((_) {});
+    } catch (e) {
+      state = state.copyWith(
+        error: 'Fout bij starten: ${e.toString()}',
+      );
+    }
   }
 
   /// Stop recording, save GPX, upload to server, and join race if code set.

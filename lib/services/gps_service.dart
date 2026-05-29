@@ -32,6 +32,22 @@ class GpsService {
         permission == LocationPermission.always;
   }
 
+  /// Try to get a single position to verify GPS is working.
+  /// Returns true if GPS is available, false otherwise.
+  Future<bool> checkGpsAvailable() async {
+    try {
+      await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Stream<GpsPoint> get positionStream {
     if (_stream != null) return _stream!;
 
@@ -51,7 +67,6 @@ class GpsService {
         // GPS not available or permission denied — silently drop errors
       });
     } catch (_) {
-      // Permission denied before stream even starts — return empty stream
       _stream = const Stream.empty();
     }
 
