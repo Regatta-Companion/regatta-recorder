@@ -37,10 +37,8 @@ class GpsService {
   Future<bool> checkGpsAvailable() async {
     try {
       await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 5),
-        ),
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
       );
       return true;
     } catch (_) {
