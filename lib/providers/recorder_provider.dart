@@ -1,6 +1,7 @@
 // lib/providers/recorder_provider.dart
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/recorder_state.dart';
 import '../services/background_service.dart';
 import '../services/gps_service.dart';
@@ -26,7 +27,7 @@ class RecorderNotifier extends Notifier<RecorderState> {
     return ref.read(gpsServiceProvider).requestPermission();
   }
 
-  /// Start recording. Automatically starts the timer and foreground service.
+  /// Start recording. Automatically starts the timer and keeps screen on.
   Future<void> startRecording() async {
     try {
       // 1. Permission
@@ -71,8 +72,8 @@ class RecorderNotifier extends Notifier<RecorderState> {
       // 4. Start timer
       ref.read(timerProvider.notifier).start();
 
-      // 5. Foreground service (fire-and-forget)
-      BackgroundServiceManager.startRecording().catchError((_) {});
+      // 5. Keep screen on during recording (so timer + GPS stay alive)
+      WakelockPlus.enable();
     } catch (e) {
       state = state.copyWith(
         error: 'Fout bij starten: ${e.toString()}',
@@ -84,8 +85,8 @@ class RecorderNotifier extends Notifier<RecorderState> {
   Future<void> stopRecording() async {
     _elapsedTimer?.cancel();
 
-    // Stop foreground service first
-    BackgroundServiceManager.stopRecording();
+    // Allow screen to sleep again
+    WakelockPlus.disable();
 
     final file = await _trackRecorder.stop();
 
@@ -150,7 +151,7 @@ class RecorderNotifier extends Notifier<RecorderState> {
   void reset() {
     _elapsedTimer?.cancel();
     _trackRecorder.stop(); // discard
-    BackgroundServiceManager.stopRecording();
+    WakelockPlus.disable();
     state = const RecorderState();
   }
 }
