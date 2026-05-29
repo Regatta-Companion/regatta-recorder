@@ -10,7 +10,7 @@ import 'package:flutter_background_service_android/flutter_background_service_an
 /// starts, which fixes the "Bad notification for startForeground" crash on
 /// Xiaomi/MIUI where the auto-created channel fails.
 ///
-/// Uses dataSync type instead of location to avoid Android 14+ restrictions.
+/// Uses combined dataSync|location types — location is needed for GPS in background on Android 14+.
 class BackgroundServiceManager {
   static Future<void> initialize() async {
     final service = FlutterBackgroundService();
@@ -30,7 +30,7 @@ class BackgroundServiceManager {
         initialNotificationTitle: 'Regatta Recorder',
         initialNotificationContent: 'Klaar om op te nemen',
         foregroundServiceNotificationId: 888,
-        foregroundServiceTypes: [AndroidForegroundType.dataSync],
+        foregroundServiceTypes: [AndroidForegroundType.dataSync, AndroidForegroundType.location],
       ),
     );
   }
