@@ -26,6 +26,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return '+${notifier.format(timerState.raceElapsed)}';
   }
 
+  void _startGpsIfIdle() {
+    final rec = ref.read(recorderProvider);
+    if (rec.status == RecorderStatus.idle) {
+      ref.read(recorderProvider.notifier).startRecording();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final timerState = ref.watch(timerProvider);
@@ -34,15 +41,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final notifier = ref.read(timerProvider.notifier);
     final display = _formatDisplay(timerState);
 
-    // Auto-start recorder when countdown hits 5 minutes remaining
+    // GPS automatically follows timer:
+    // - No countdown (just go): start GPS immediately when timer starts
+    // - With countdown:          start GPS at T-5:00
+    // - Timer stop/pause:        stop GPS
     ref.listen(timerProvider, (prev, next) {
-      if (next.isRunning &&
+      final wasRunning = prev?.isRunning == true;
+      final isNowRunning = next.isRunning;
+
+      // --- START GPS ---
+      if (isNowRunning && !wasRunning) {
+        if (!next.hasCountdown) {
+          // No countdown → GPS starts NOW
+          _startGpsIfIdle();
+        }
+      }
+      // Countdown hit ≤5 min remaining
+      if (isNowRunning &&
           next.isCountingDown &&
           next.remaining <= const Duration(minutes: 5) &&
           next.remaining > Duration.zero) {
+        _startGpsIfIdle();
+      }
+
+      // --- STOP GPS ---
+      if (wasRunning && !isNowRunning) {
+        // Timer was stopped or paused
         final rec = ref.read(recorderProvider);
-        if (rec.status == RecorderStatus.idle) {
-          ref.read(recorderProvider.notifier).startRecording();
+        if (rec.status == RecorderStatus.recording) {
+          ref.read(recorderProvider.notifier).stopRecording();
         }
       }
     });
@@ -421,7 +448,6 @@ class _RecorderBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(recorderProvider.notifier);
-    final settings = ref.watch(settingsProvider).valueOrNull;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -446,31 +472,16 @@ class _RecorderBar extends ConsumerWidget {
               Expanded(
                 child: Text(
                   recorder.status == RecorderStatus.recording
-                      ? 'Opnemen — ${recorder.pointCount} pts'
+                      ? 'GPS actief — ${recorder.pointCount} pts'
                       : recorder.status == RecorderStatus.uploading
                           ? 'Uploaden...'
                           : recorder.status == RecorderStatus.done
                               ? 'Opname voltooid'
-                              : 'GPS Recorder',
+                              : 'GPS gereed',
                   style: const TextStyle(fontSize: 14),
                 ),
               ),
-              if (recorder.canStart)
-                TextButton.icon(
-                  onPressed: () => notifier.startRecording(),
-                  icon: const Icon(Icons.fiber_manual_record, size: 18),
-                  label: Text(
-                    settings?.authToken != null ? 'Start' : 'Start*',
-                    style: const TextStyle(color: AppColors.red),
-                  ),
-                )
-              else if (recorder.canStop)
-                TextButton.icon(
-                  onPressed: () => notifier.stopRecording(),
-                  icon: const Icon(Icons.stop, size: 18),
-                  label: const Text('Stop'),
-                )
-              else if (recorder.status == RecorderStatus.done)
+              if (recorder.status == RecorderStatus.done)
                 TextButton.icon(
                   onPressed: () => notifier.reset(),
                   icon: const Icon(Icons.refresh, size: 18),
@@ -493,7 +504,6 @@ class _RecorderBarLandscape extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(recorderProvider.notifier);
-    final settings = ref.watch(settingsProvider).valueOrNull;
 
     return Card(
       child: Padding(
@@ -528,23 +538,7 @@ class _RecorderBarLandscape extends ConsumerWidget {
                 ),
               ],
             ),
-            if (recorder.canStart)
-              TextButton.icon(
-                onPressed: () => notifier.startRecording(),
-                icon: const Icon(Icons.fiber_manual_record, size: 14),
-                label: Text(
-                  settings?.authToken != null ? 'Start' : 'Start*',
-                  style: const TextStyle(color: AppColors.red, fontSize: 11),
-                ),
-              )
-            else if (recorder.canStop)
-              TextButton.icon(
-                onPressed: () => notifier.stopRecording(),
-                icon: const Icon(Icons.stop, size: 14),
-                label: const Text('Stop',
-                    style: TextStyle(fontSize: 11)),
-              )
-            else if (recorder.status == RecorderStatus.done)
+            if (recorder.status == RecorderStatus.done)
               TextButton.icon(
                 onPressed: () => notifier.reset(),
                 icon: const Icon(Icons.refresh, size: 14),
